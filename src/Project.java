@@ -7,13 +7,13 @@ public class Project
         StudentNetworkSimulator simulator;
         
         int nsim = -1;
-        double loss = -1;
-        double corrupt = -1;
+        double loss = -1;       // lost pkt
+        double corrupt = -1;    // corrupted pkt
         double delay = -1;
         int trace = -1;
         int seed = -1;
-	int windowsize = -1;
-	double timeout = -1;
+	    int windowsize = -1;
+	    double timeout = -1;
         String buffer = "";
         File outputfile = new File("OutputFile");
         BufferedReader stdIn = new BufferedReader(
