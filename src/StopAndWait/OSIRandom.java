@@ -1,4 +1,4 @@
-package GoBackN;
+package StopAndWait;
 
 public class OSIRandom
 {
@@ -18,6 +18,6 @@ public class OSIRandom
 
     public double nextDouble(int i)
     {
-	return (double)nextInt(i)/32767;
+        return (double)nextInt(i)/32767;
     }
 }

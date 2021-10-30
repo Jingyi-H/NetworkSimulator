@@ -1,4 +1,4 @@
-package GoBackN;
+package StopAndWait;
 
 public interface EventList
 {

@@ -3,25 +3,25 @@ import java.util.Vector;
 public class EventListImpl implements EventList
 {
     private Vector<Event> data;
-    
+
     public EventListImpl()
     {
         data = new Vector<Event>();
     }
-    
+
     public boolean add(Event e)
     {
         data.addElement(e);
         return true;
     }
-    
+
     public Event removeNext()
     {
         if (data.isEmpty())
         {
             return null;
         }
-    
+
         int firstIndex = 0;
         double first = ((Event)data.elementAt(firstIndex)).getTime();
         for (int i = 0; i < data.size(); i++)
@@ -32,13 +32,13 @@ public class EventListImpl implements EventList
                 firstIndex = i;
             }
         }
-        
+
         Event next = (Event)data.elementAt(firstIndex);
         data.removeElement(next);
-    
+
         return next;
     }
-    
+
     public String toString()
     {
         return data.toString();
@@ -48,10 +48,10 @@ public class EventListImpl implements EventList
     {
         int timerIndex = -1;
         Event timer = null;
-        
+
         for (int i = 0; i < data.size(); i++)
         {
-            if ((((Event)(data.elementAt(i))).getType() == 
+            if ((((Event)(data.elementAt(i))).getType() ==
                                            NetworkSimulator.TIMERINTERRUPT) &&
                 (((Event)(data.elementAt(i))).getEntity() == entity))
             {
@@ -59,30 +59,30 @@ public class EventListImpl implements EventList
                 break;
             }
         }
-        
+
         if (timerIndex != -1)
         {
             timer = (Event)(data.elementAt(timerIndex));
             data.removeElement(timer);
         }
-        
+
         return timer;
-            
+
     }
-    
+
     public double getLastPacketTime(int entityTo)
     {
         double time = 0;
         for (int i = 0; i < data.size(); i++)
         {
-            if ((((Event)(data.elementAt(i))).getType() == 
+            if ((((Event)(data.elementAt(i))).getType() ==
                                            NetworkSimulator.FROMLAYER3) &&
                 (((Event)(data.elementAt(i))).getEntity() == entityTo))
             {
                 time = ((Event)(data.elementAt(i))).getTime();
             }
         }
-    
+
         return time;
     }
 }
