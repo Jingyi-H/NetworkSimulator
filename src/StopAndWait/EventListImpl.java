@@ -1,3 +1,5 @@
+package StopAndWait;
+
 import java.util.Vector;
 
 public class EventListImpl implements EventList
@@ -52,8 +54,8 @@ public class EventListImpl implements EventList
         for (int i = 0; i < data.size(); i++)
         {
             if ((((Event)(data.elementAt(i))).getType() ==
-                                           NetworkSimulator.TIMERINTERRUPT) &&
-                (((Event)(data.elementAt(i))).getEntity() == entity))
+                    NetworkSimulator.TIMERINTERRUPT) &&
+                    (((Event)(data.elementAt(i))).getEntity() == entity))
             {
                 timerIndex = i;
                 break;
@@ -76,8 +78,8 @@ public class EventListImpl implements EventList
         for (int i = 0; i < data.size(); i++)
         {
             if ((((Event)(data.elementAt(i))).getType() ==
-                                           NetworkSimulator.FROMLAYER3) &&
-                (((Event)(data.elementAt(i))).getEntity() == entityTo))
+                    NetworkSimulator.FROMLAYER3) &&
+                    (((Event)(data.elementAt(i))).getEntity() == entityTo))
             {
                 time = ((Event)(data.elementAt(i))).getTime();
             }

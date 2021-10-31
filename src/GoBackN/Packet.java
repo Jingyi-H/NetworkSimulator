@@ -1,3 +1,5 @@
+package GoBackN;
+
 public class Packet
 {
     private int seqnum;

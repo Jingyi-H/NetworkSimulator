@@ -1,3 +1,5 @@
+package GoBackN;
+
 public class Message
 {
     private String data;

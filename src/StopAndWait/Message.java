@@ -1,7 +1,9 @@
+package StopAndWait;
+
 public class Message
 {
     private String data;
-    
+
     public Message(String inputData)
     {
         if (inputData == null)
@@ -17,7 +19,7 @@ public class Message
             data = new String(inputData);
         }
     }
-           
+
     public boolean setData(String inputData)
     {
         if (inputData == null)
@@ -36,7 +38,7 @@ public class Message
             return true;
         }
     }
-    
+
     public String getData()
     {
         return data;
