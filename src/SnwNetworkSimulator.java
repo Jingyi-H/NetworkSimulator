@@ -1,7 +1,3 @@
-import sr.Message;
-import sr.NetworkSimulator;
-import sr.Packet;
-
 import java.util.*;
 import java.io.*;
 
@@ -98,8 +94,9 @@ public class SnwNetworkSimulator extends NetworkSimulator
     private int LimitSeqNo;
     private int base_A;
     private int nextSeqNo_A;
+    private int nextSeqNo_B;
     private int currAck_A;
-    private int currAck_B
+    private int currAck_B;
     private ArrayList<Packet> buffer_A;
 //    private ArrayList<Packet> buffer_B;
 
@@ -194,16 +191,26 @@ public class SnwNetworkSimulator extends NetworkSimulator
     protected void bInput(Packet packet)
     {
         String recvData = packet.getPayload();
-        // if packet is corrupted, drop it
+        // if packet is corrupted, drop it, send duplicate ACK to notify A
         // TODO: checksum calculation
         if (packet.getChecksum() != recvData.length()) {
+            int checksum = 0;
+            Packet reAck = new Packet(nextSeqNo_B, packet.getSeqnum(), 0, "");
+            toLayer3(B, reAck);
             return;
         }
         // if the packet is not the expected one, drop and resend ACK
         // currAck = nextExpectedSeqNo
         if (packet.getSeqnum() != currAck_B) {
-            ack = new Packet()
+            int checksum = 0;
+            Packet reAck = new Packet(nextSeqNo_B, packet.getSeqnum(), 0, "");
+            toLayer3(B, reAck);
+            return;
         }
+        // receive packet successfully
+        Packet ack = new Packet(nextSeqNo_B, currAck_B, 0, "");
+        toLayer3(B, ack);
+        currAck_B = (currAck_B + 1) % LimitSeqNo;
         // send data from B to upper layer
         toLayer5(recvData);
     }
@@ -214,7 +221,8 @@ public class SnwNetworkSimulator extends NetworkSimulator
     // of entity B).
     protected void bInit()
     {
-
+        nextSeqNo_B = 1;
+        currAck_B = 0;
     }
 
     // Use to print final statistics
