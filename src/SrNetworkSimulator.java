@@ -1,7 +1,3 @@
-import sr.Message;
-import sr.NetworkSimulator;
-import sr.Packet;
-
 import java.util.*;
 import java.io.*;
 
@@ -96,6 +92,19 @@ public class SrNetworkSimulator extends NetworkSimulator
     private int WindowSize;
     private double RxmtInterval;
     private int LimitSeqNo;
+    private int base_A;
+    private int base_B;
+    private int nextSeqNo_A;
+    private int nextSeqNo_B;
+    private int currAck_A;
+    private int currAck_B;
+    private HashMap<Integer, Packet> senderBuffer;
+    private ArrayList<Packet> buffer_A; // sent and un-ACKed packets
+    private ArrayList<Packet> buffer_B; // out-of-order packets
+    /* statistics variables */
+    private int rtxCnt = 0;
+    private int originCnt = 0;
+
 
     // Add any necessary class variables here.  Remember, you cannot use
     // these variables to send messages error free!  They can only hold
@@ -125,7 +134,27 @@ public class SrNetworkSimulator extends NetworkSimulator
     // the receiving upper layer.
     protected void aOutput(Message message)
     {
-
+        String msgData = message.getData();
+        // TODO: checksum calculation
+        int checksum = msgData.length();
+        // if next seqnum not in window, return
+        int lastSeqNo = base_A + WindowSize;
+        if (lastSeqNo < LimitSeqNo) {
+            if (nextSeqNo_A > lastSeqNo) {
+                return;
+            }
+            else {
+                if (nextSeqNo_A > lastSeqNo % LimitSeqNo && nextSeqNo_A < base_A) {
+                    return;
+                }
+            }
+        }
+        // send packet
+        Packet pkt = new Packet(nextSeqNo_A, currAck_A, checksum, msgData);
+        senderBuffer.put(nextSeqNo_A, pkt);
+        startTimer(A, 5 * RxmtInterval);
+        toLayer3(A, pkt);
+        nextSeqNo_A = (nextSeqNo_A + 1) % LimitSeqNo;
     }
 
     // This routine will be called whenever a packet sent from the B-side
@@ -134,7 +163,20 @@ public class SrNetworkSimulator extends NetworkSimulator
     // sent from the B-side.
     protected void aInput(Packet packet)
     {
-
+        // if corrupted, drop
+        // TODO: checksum calculation
+        if (packet.getChecksum() != packet.getPayload().length()) {
+            return;
+        }
+        // A only receives ACKs
+        if (packet.getAcknum() != base_A) {
+            // resend packet from buffer
+            toLayer3(A, senderBuffer.get(nextSeqNo_A));
+        }
+        // else -> stop timer, sws slides and clear buffer
+        stopTimer(A);
+        buffer_A.remove(0);
+        base_A = (base_A + 1) % LimitSeqNo;
     }
 
     // This routine will be called when A's timer expires (thus generating a
@@ -152,7 +194,9 @@ public class SrNetworkSimulator extends NetworkSimulator
     // of entity A).
     protected void aInit()
     {
-
+        base_A = nextSeqNo_A = FirstSeqNo;
+        currAck_A = 0;
+        buffer_A = new ArrayList<>();
     }
 
     // This routine will be called whenever a packet sent from the B-side
@@ -170,12 +214,35 @@ public class SrNetworkSimulator extends NetworkSimulator
     // of entity B).
     protected void bInit()
     {
-
+        base_B = nextSeqNo_B = FirstSeqNo;
+        currAck_B = 0;
+        buffer_B = new ArrayList<>();
     }
 
     // Use to print final statistics
     protected void Simulation_done()
     {
+        try {
+            File myObj = new File("log.txt");
+            if (myObj.createNewFile()) {
+                FileWriter fw = new FileWriter("log.txt");
+                fw.write("\n\n===============STATISTICS=======================");
+                fw.write("Number of original packets transmitted by A:" + "<YourVariableHere>");
+                fw.write("Number of retransmissions by A:" + "<YourVariableHere>");
+                fw.write("Number of data packets delivered to layer 5 at B:" + "<YourVariableHere>");
+                fw.write("Number of ACK packets sent by B:" + "<YourVariableHere>");
+                fw.write("Number of corrupted packets:" + "<YourVariableHere>");
+                fw.write("Ratio of lost packets:" + "<YourVariableHere>" );
+                fw.write("Ratio of corrupted packets:" + "<YourVariableHere>");
+                fw.write("Average RTT:" + "<YourVariableHere>");
+                fw.write("Average communication time:" + "<YourVariableHere>");
+                fw.write("==================================================");
+            }
+
+        } catch (IOException e) {
+            System.out.println("An error occurred when creating log file.");
+        }
+
         // TO PRINT THE STATISTICS, FILL IN THE DETAILS BY PUTTING VARIBALE NAMES. DO NOT CHANGE THE FORMAT OF PRINTED OUTPUT
         System.out.println("\n\n===============STATISTICS=======================");
         System.out.println("Number of original packets transmitted by A:" + "<YourVariableHere>");
