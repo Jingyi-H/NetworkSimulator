@@ -1,3 +1,5 @@
+package GoBackN;
+
 import java.io.*;
 
 public class Project
@@ -250,7 +252,7 @@ public class Project
             
             if (buffer.equals(""))
             {
-		        seed = 0;
+		seed = 0;
             }
             else
             {            

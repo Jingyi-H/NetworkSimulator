@@ -1,3 +1,5 @@
+package GoBackN;
+
 public class OSIRandom
 {
     private long seed[] = new long[5];
