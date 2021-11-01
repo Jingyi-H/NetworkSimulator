@@ -109,10 +109,15 @@ public class StudentNetworkSimulator extends NetworkSimulator
     private double waitTime;
     private int[] sack_A = new int[5];
     private HashMap<Integer, Double> send;
+    private HashMap<Integer, Double> get;
     private double[] RTTstart = new double[1000];
     private double[] RTTEnd = new double[1000];
 
     //Go back N receiver
+    private int sequenceNoExpected;
+    private int[] sack_B = new int[5];
+    private int count;
+    private HashMap<Integer,String> bufferB;
 
     //Go back N variables used in the calculation
     private int originalPacketsNumber = 0;
@@ -193,7 +198,18 @@ public class StudentNetworkSimulator extends NetworkSimulator
     // of entity A).
     protected void aInit()
     {
-
+        System.out.println("A: init");
+        seqNo= 0;
+        base = 0;
+        buffMaximum = 100;
+        buffer = new ArrayList<>();
+        seqPtr = 0;
+        waitTime = 1 * RxmtInterval;
+        for(int i = 0; i < 5; i++){
+            sack_A[i] = -1;
+        }
+        send = new HashMap<>();
+        get = new HashMap<>();
     }
     
     // This routine will be called whenever a packet sent from the B-side 
@@ -211,7 +227,13 @@ public class StudentNetworkSimulator extends NetworkSimulator
     // of entity B).
     protected void bInit()
     {
-
+        System.out.println("B: init");
+        sequenceNoExpected = 0;
+        for(int i = 0; i < 5; i++){
+            sack_B[i] = -1;
+        }
+        count = 0;
+        bufferB = new HashMap<>();
     }
 
     // Use to print final statistics
