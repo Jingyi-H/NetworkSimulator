@@ -99,8 +99,9 @@ public class SrNetworkSimulator extends NetworkSimulator
     private int currAck_A;
     private int lastAck_B;
     private Packet[] senderWindow;
-    private ArrayList<Packet> buffer_A; // sent and un-ACKed packets
-    private ArrayList<Packet> buffer_B; // out-of-order packets
+    private Packet[] receiverWindow;
+    private ArrayList<Integer> isAcked;
+    private ArrayList<Packet> buffer_A; // messages from upper layer
     /* statistics variables */
     private int rtxCnt = 0;
     private int originCnt = 0;
@@ -160,10 +161,30 @@ public class SrNetworkSimulator extends NetworkSimulator
         }
         // A only receives ACKs
         // TODO: how to see
+        if (packet.getAcknum() == base_A) {
+            stopTimer(A);
+            base_A = (base_A + 1) % LimitSeqNo;
+            slide(receiverWindow, 1);
+            while (isAcked.size() > 0) {
+                if (!isAcked.contains(base_A)) {
+                    break;
+                }
+                isAcked.remove(base_A);
+                slide(receiverWindow, 1);
+                base_A = (base_A + 1) % LimitSeqNo;
+            }
+        }
+        else if (isInWindow(packet.getAcknum(), base_A, WindowSize)) {
+            if (!isAcked.contains(packet.getAcknum())) {
+                // ooo ACK
+                isAcked.add(packet.getAcknum());
+            }
+            else {
+                // duplicate ACK -> resend packet
+                toLayer3(A, senderWindow[0]);
+            }
+        }
 
-        // else -> stop timer, sws slides and clear buffer
-        stopTimer(A);
-        buffer_A.remove(0);
     }
 
     // This routine will be called when A's timer expires (thus generating a
@@ -172,7 +193,9 @@ public class SrNetworkSimulator extends NetworkSimulator
     // for how the timer is started and stopped.
     protected void aTimerInterrupt()
     {
-
+        stopTimer(A);
+        startTimer(A, 5 * RxmtInterval));
+        toLayer3(A, senderWindow[0]);
     }
 
     // This routine will be called once, before any of your other A-side
@@ -194,29 +217,31 @@ public class SrNetworkSimulator extends NetworkSimulator
     protected void bInput(Packet packet)
     {
         String recvData = packet.getPayload();
-        // if packet is corrupted, drop it, send duplicate ACK to notify A
         // TODO: checksum calculation
-        if (packet.getChecksum() != recvData.length()) {
+        if (packet.getChecksum() != recvData.length() || !isInWindow(packet.getSeqnum(), base_B, WindowSize)) {
+            // if packet is corrupted/not in receiver window
+            // drop it, send duplicate ACK to notify A
             int checksum = 0;
             Packet reAck = new Packet(nextSeqNo_B, lastAck_B, 0, "");
             toLayer3(B, reAck);
             return;
         }
-        // if the packet is not the expected one, drop and resend ACK
-        // currAck = nextExpectedSeqNo
-        // if in order, send to the upper layer
-        if (packet.getSeqnum() != lastAck_B) {
-            int checksum = 0;
-            Packet reAck = new Packet(nextSeqNo_B, packet.getSeqnum(), 0, "");
-            toLayer3(B, reAck);
-            return;
-        }
+
         // receive packet successfully
         lastAck_B = (lastAck_B + 1) % LimitSeqNo;
         Packet ack = new Packet(nextSeqNo_B, lastAck_B, 0, "");
         toLayer3(B, ack);
+
         // send data from B to upper layer
-        toLayer5(recvData);
+        updateReceiverWnd(packet, base_B);
+        // send receiver window to upper layer
+        int idx = 0;
+        while (receiverWindow[idx] != null) {
+            toLayer5(receiverWindow[idx].getPayload());
+            idx++;
+        }
+        // slide RWND
+        slide(receiverWindow, idx);
     }
 
     // This routine will be called once, before any of your other B-side
@@ -227,7 +252,7 @@ public class SrNetworkSimulator extends NetworkSimulator
     {
         base_B = nextSeqNo_B = FirstSeqNo;
         lastAck_B = 0;
-        buffer_B = new ArrayList<>();
+        receiverWindow = new Packet[WindowSize];
     }
 
     protected void updateSenderWnd() {
@@ -249,6 +274,14 @@ public class SrNetworkSimulator extends NetworkSimulator
         for (Packet pkt: senderWindow) {
             toLayer3(A, pkt);
         }
+    }
+
+    protected void updateReceiverWnd(Packet pkt, int base) {
+        int wndIdx = base - pkt.getSeqnum();
+        if (wndIdx < 0) {
+            wndIdx += LimitSeqNo;
+        }
+        receiverWindow[wndIdx] = pkt;
     }
 
     protected boolean isInWindow(int seqnum, int base, int wndsize) {
