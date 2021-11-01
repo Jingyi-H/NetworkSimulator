@@ -1,7 +1,6 @@
 package GoBackN;
 
 import java.util.*;
-import java.io.*;
 
 public class StudentNetworkSimulator extends NetworkSimulator
 {
@@ -122,6 +121,9 @@ public class StudentNetworkSimulator extends NetworkSimulator
     //Go back N variables used in the calculation
     private int originalPacketsNumber = 0;
     private double rttStarted;
+    private int corruptSeq = 0;
+    private int dataTo5AtB = 0;
+    private int ACKByB = 0;
 
     // This is the constructor.  Don't touch!
     public StudentNetworkSimulator(int numMessages,
@@ -218,7 +220,40 @@ public class StudentNetworkSimulator extends NetworkSimulator
     // sent from the A-side.
     protected void bInput(Packet packet)
     {
+        //1.check if this is a corrupted packet
+        //2.if the packet is not corrupted, save it in the buffer_B
+        //3.send ACK to A
+        //4.check the sequence number, if it is the next tolayer5, send to the layer5
+        System.out.println("B: Package from A was received through layer 3 ("+packet.getPayload()+").");
+        if (checkCorrupted(packet)) {
+            System.out.println("\033[31;4m" + "B: Packet corrupted!" + "\033[0m");
+            if (checkCorrupted(packet))
+                corruptSeq++;
+            //return;
+        } else {
+            System.out.println("B: Packet received from A checks out.");
+            String data = packet.getPayload();
+            sack_B[count] = packet.getSeqnum();
+            count++;
+            count = count%5;
+            bufferB.put(packet.getSeqnum(),data);
 
+            int seqB = packet.getSeqnum();
+            int ACK = seqB;
+            String message = "";
+            int check = calculateCheckSum(message) + seqB + ACK;
+            System.out.println("B: SACK: " + sack_B[0] +", " + sack_B[1] +", " + sack_B[2] +", " + sack_B[3] +", " + sack_B[4]);
+            Packet newPacket = new Packet(seqB,ACK,check,message,sack_B);
+            toLayer3(B, newPacket);
+
+            while(bufferB.containsKey(sequenceNoExpected)){
+                System.out.println("B: toLayer5: " + sequenceNoExpected);
+                toLayer5(bufferB.get(sequenceNoExpected));
+                sequenceNoExpected++;
+                dataTo5AtB++;
+            }
+            ACKByB++;
+        }
     }
     
     // This routine will be called once, before any of your other B-side 
@@ -264,5 +299,14 @@ public class StudentNetworkSimulator extends NetworkSimulator
             checkSum += (int)context.charAt(i);
         }
         return checkSum;
+    }
+
+    public boolean checkCorrupted(Packet packet) {
+        String context = packet.getPayload();
+        int checkSum_compare = 0;
+        for(int i = 0; i < context.length(); i++) {
+            checkSum_compare += (int)context.charAt(i);
+        }
+        return (checkSum_compare != packet.getChecksum());
     }
 }
