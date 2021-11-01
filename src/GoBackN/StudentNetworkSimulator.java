@@ -100,6 +100,24 @@ public class StudentNetworkSimulator extends NetworkSimulator
     // state information for A or B.
     // Also add any necessary methods (e.g. checksum of a String)
 
+    //Go Back N sender
+    private int base;
+    private int seqNo;
+    private ArrayList<Packet> buffer;
+    private int buffMaximum;
+    private  int seqPtr;
+    private double waitTime;
+    private int[] sack_A = new int[5];
+    private HashMap<Integer, Double> send;
+    private double[] RTTstart = new double[1000];
+    private double[] RTTEnd = new double[1000];
+
+    //Go back N receiver
+
+    //Go back N variables used in the calculation
+    private int originalPacketsNumber = 0;
+    private double rttStarted;
+
     // This is the constructor.  Don't touch!
     public StudentNetworkSimulator(int numMessages,
                                    double loss,
@@ -116,14 +134,39 @@ public class StudentNetworkSimulator extends NetworkSimulator
 	RxmtInterval = delay;
     }
 
-    
+
     // This routine will be called whenever the upper layer at the sender [A]
     // has a message to send.  It is the job of your protocol to insure that
     // the data in such a message is delivered in-order, and correctly, to
     // the receiving upper layer.
     protected void aOutput(Message message)
     {
-
+        System.out.println("A: get message "+ message.getData());
+        if (buffer.size() < buffMaximum + base + WindowSize) {
+            String context = message.getData();
+            int seqA = buffer.size();
+            int ACK = -1;
+            int check = calculateCheckSum(context) + seqA + ACK;
+            buffer.add(new Packet(seqA, ACK, check, context));
+            while (seqPtr < base + WindowSize) {
+                if (seqPtr < buffer.size()) {
+                    System.out.println("A: Sending packet " + seqPtr + " to receiver");
+                }
+                toLayer3(A, buffer.get(seqPtr));
+                RTTstart[buffer.get(seqPtr).getSeqnum()] = getTime();
+                if (base == seqPtr) {
+                    startTimer(A, waitTime);
+                    rttStarted = getTime();
+                }
+                double time = getTime();
+                if(!send.containsKey(seqPtr)) send.put(seqPtr,time);
+                seqPtr++;
+                originalPacketsNumber++;
+            }
+        }else {
+            System.out.println("The buffer of A is full!");
+            System.exit(0);
+        }
     }
     
     // This routine will be called whenever a packet sent from the B-side 
@@ -193,4 +236,11 @@ public class StudentNetworkSimulator extends NetworkSimulator
     	//System.out.println("Example statistic you want to check e.g. number of ACK packets received by A :" + "<YourVariableHere>"); 
     }	
 
+    public int calculateCheckSum (String context) {
+        int checkSum = 0;
+        for (int i = 0; i < context.length(); i++) {
+            checkSum += (int)context.charAt(i);
+        }
+        return checkSum;
+    }
 }
