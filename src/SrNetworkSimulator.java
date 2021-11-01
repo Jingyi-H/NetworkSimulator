@@ -194,7 +194,7 @@ public class SrNetworkSimulator extends NetworkSimulator
     protected void aTimerInterrupt()
     {
         stopTimer(A);
-        startTimer(A, 5 * RxmtInterval));
+        startTimer(A, 5 * RxmtInterval);
         toLayer3(A, senderWindow[0]);
     }
 
