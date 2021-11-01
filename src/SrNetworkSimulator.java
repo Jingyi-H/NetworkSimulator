@@ -97,8 +97,8 @@ public class SrNetworkSimulator extends NetworkSimulator
     private int nextSeqNo_A;
     private int nextSeqNo_B;
     private int currAck_A;
-    private int currAck_B;
-    private HashMap<Integer, Packet> senderBuffer;
+    private int lastAck_B;
+    private Packet[] senderWindow;
     private ArrayList<Packet> buffer_A; // sent and un-ACKed packets
     private ArrayList<Packet> buffer_B; // out-of-order packets
     /* statistics variables */
@@ -137,23 +137,13 @@ public class SrNetworkSimulator extends NetworkSimulator
         String msgData = message.getData();
         // TODO: checksum calculation
         int checksum = msgData.length();
-        // if next seqnum not in window, return
-        int lastSeqNo = base_A + WindowSize;
-        if (lastSeqNo < LimitSeqNo) {
-            if (nextSeqNo_A > lastSeqNo) {
-                return;
-            }
-            else {
-                if (nextSeqNo_A > lastSeqNo % LimitSeqNo && nextSeqNo_A < base_A) {
-                    return;
-                }
-            }
-        }
-        // send packet
+
+        // buffer packet
         Packet pkt = new Packet(nextSeqNo_A, currAck_A, checksum, msgData);
-        senderBuffer.put(nextSeqNo_A, pkt);
-        startTimer(A, 5 * RxmtInterval);
-        toLayer3(A, pkt);
+        buffer_A.add(pkt);
+
+        updateSenderWnd();
+        sendSenderWnd();
         nextSeqNo_A = (nextSeqNo_A + 1) % LimitSeqNo;
     }
 
@@ -169,14 +159,11 @@ public class SrNetworkSimulator extends NetworkSimulator
             return;
         }
         // A only receives ACKs
-        if (packet.getAcknum() != base_A) {
-            // resend packet from buffer
-            toLayer3(A, senderBuffer.get(nextSeqNo_A));
-        }
+        // TODO: how to see
+
         // else -> stop timer, sws slides and clear buffer
         stopTimer(A);
         buffer_A.remove(0);
-        base_A = (base_A + 1) % LimitSeqNo;
     }
 
     // This routine will be called when A's timer expires (thus generating a
@@ -197,6 +184,7 @@ public class SrNetworkSimulator extends NetworkSimulator
         base_A = nextSeqNo_A = FirstSeqNo;
         currAck_A = 0;
         buffer_A = new ArrayList<>();
+        senderWindow = new Packet[WindowSize];
     }
 
     // This routine will be called whenever a packet sent from the B-side
@@ -205,7 +193,30 @@ public class SrNetworkSimulator extends NetworkSimulator
     // sent from the A-side.
     protected void bInput(Packet packet)
     {
-
+        String recvData = packet.getPayload();
+        // if packet is corrupted, drop it, send duplicate ACK to notify A
+        // TODO: checksum calculation
+        if (packet.getChecksum() != recvData.length()) {
+            int checksum = 0;
+            Packet reAck = new Packet(nextSeqNo_B, lastAck_B, 0, "");
+            toLayer3(B, reAck);
+            return;
+        }
+        // if the packet is not the expected one, drop and resend ACK
+        // currAck = nextExpectedSeqNo
+        // if in order, send to the upper layer
+        if (packet.getSeqnum() != lastAck_B) {
+            int checksum = 0;
+            Packet reAck = new Packet(nextSeqNo_B, packet.getSeqnum(), 0, "");
+            toLayer3(B, reAck);
+            return;
+        }
+        // receive packet successfully
+        lastAck_B = (lastAck_B + 1) % LimitSeqNo;
+        Packet ack = new Packet(nextSeqNo_B, lastAck_B, 0, "");
+        toLayer3(B, ack);
+        // send data from B to upper layer
+        toLayer5(recvData);
     }
 
     // This routine will be called once, before any of your other B-side
@@ -215,8 +226,54 @@ public class SrNetworkSimulator extends NetworkSimulator
     protected void bInit()
     {
         base_B = nextSeqNo_B = FirstSeqNo;
-        currAck_B = 0;
+        lastAck_B = 0;
         buffer_B = new ArrayList<>();
+    }
+
+    protected void updateSenderWnd() {
+        if (!buffer_A.isEmpty()) {
+            int next = 0;
+            while (next < senderWindow.length && senderWindow[next] != null) {
+                next++;
+            }
+            while (buffer_A.size() != 0 && next < senderWindow.length) {
+                senderWindow[next] = buffer_A.get(0);
+                buffer_A.remove(0);
+                next++;
+            }
+        }
+    }
+
+    protected void sendSenderWnd() {
+        startTimer(A, 5 * RxmtInterval);
+        for (Packet pkt: senderWindow) {
+            toLayer3(A, pkt);
+        }
+    }
+
+    protected boolean isInWindow(int seqnum, int base, int wndsize) {
+        // TODO: check
+        if (seqnum >= base && seqnum < base + wndsize) {
+            return true;
+        }
+        else {
+            if (seqnum + LimitSeqNo >= base && seqnum < (base + wndsize) % LimitSeqNo) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    protected void slide(Packet[] window, int k) {
+        // slides k packets
+        for (int i = 0; i < window.length; i++) {
+            if (i + k < window.length) {
+                window[i] = window[i + k];
+            }
+            else {
+                window[i] = null;
+            }
+        }
     }
 
     // Use to print final statistics
