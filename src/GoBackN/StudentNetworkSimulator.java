@@ -332,17 +332,31 @@ public class StudentNetworkSimulator extends NetworkSimulator
     // Use to print final statistics
     protected void Simulation_done()
     {
+        int totalPacket = originalPacketsNumber + retransmissionsNumber + ACKByB;
+        double lostRatio = (retransmissionsNumber - corruptNum) / (double) totalPacket;
+        double corruptionRatio = (corruptNum) / (double) (totalPacket - (retransmissionsNumber - corruptNum));
+        double RTT = totalRtt/(double) totalRttCount;
+        double com = 0;
+        int num = 0;
+        for(int i = 0; i < originalPacketsNumber; i++){
+            if(send.containsKey(i) && get.containsKey(i)){
+                com += get.get(i) - send.get(i);
+                num++;
+            }
+        }
+        com = com/ (double)num;
+
     	// TO PRINT THE STATISTICS, FILL IN THE DETAILS BY PUTTING VARIBALE NAMES. DO NOT CHANGE THE FORMAT OF PRINTED OUTPUT
     	System.out.println("\n\n===============STATISTICS=======================");
-    	System.out.println("Number of original packets transmitted by A:" + "<YourVariableHere>");
-    	System.out.println("Number of retransmissions by A:" + "<YourVariableHere>");
-    	System.out.println("Number of data packets delivered to layer 5 at B:" + "<YourVariableHere>");
-    	System.out.println("Number of ACK packets sent by B:" + "<YourVariableHere>");
-    	System.out.println("Number of corrupted packets:" + "<YourVariableHere>");
-    	System.out.println("Ratio of lost packets:" + "<YourVariableHere>" );
-    	System.out.println("Ratio of corrupted packets:" + "<YourVariableHere>");
-    	System.out.println("Average RTT:" + "<YourVariableHere>");
-    	System.out.println("Average communication time:" + "<YourVariableHere>");
+    	System.out.println("Number of original packets transmitted by A:" + originalPacketsNumber);
+    	System.out.println("Number of retransmissions by A:" + retransmissionsNumber);
+    	System.out.println("Number of data packets delivered to layer 5 at B:" + dataTo5AtB);
+    	System.out.println("Number of ACK packets sent by B:" + ACKByB);
+    	System.out.println("Number of corrupted packets:" + corruptNum);
+    	System.out.println("Ratio of lost packets:" + lostRatio );
+    	System.out.println("Ratio of corrupted packets:" + corruptionRatio);
+    	System.out.println("Average RTT:" + RTT);
+    	System.out.println("Average communication time:" + com);
     	System.out.println("==================================================");
 
     	// PRINT YOUR OWN STATISTIC HERE TO CHECK THE CORRECTNESS OF YOUR PROGRAM
