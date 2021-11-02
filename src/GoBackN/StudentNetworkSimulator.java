@@ -113,7 +113,7 @@ public class StudentNetworkSimulator extends NetworkSimulator
     private double[] RTTEnd = new double[1000];
 
     //Go back N receiver
-    private int sequenceNoExpected;
+    private int sequenceNowExpected;
     private int[] sack_B = new int[5];
     private int sack_B_count;
     private HashMap<Integer,String> bufferB;
@@ -127,6 +127,7 @@ public class StudentNetworkSimulator extends NetworkSimulator
     private double totalRtt = 0.0;
     private int totalRttCount = 0;
     private int corruptNum = 0;
+    private int retransmissionsNumber = 0;
 
     // This is the constructor.  Don't touch!
     public StudentNetworkSimulator(int numMessages,
@@ -197,7 +198,7 @@ public class StudentNetworkSimulator extends NetworkSimulator
             corruptSeq++;
             System.out.println("\033[31;4m" + "A: Packet corrupted!" + "\033[0m");
         } else {
-            System.out.println("A: ACK packet" + packet.getSeqnum() + "from layer3 is correct");
+            System.out.println("A: ACK packet " + packet.getSeqnum() + " from layer3 is correct");
             //add the sequence number of this packet in the sack_A
             sack_A = packet.getSackNum();
             int seq = packet.getSeqnum();
@@ -229,7 +230,26 @@ public class StudentNetworkSimulator extends NetworkSimulator
     // for how the timer is started and stopped. 
     protected void aTimerInterrupt()
     {
-
+        System.out.println("A: The timer was interrupted, resending the message.");
+        rttStarted = getTime();
+        Set<Integer> q = new HashSet<>();
+        System.out.println("A: SACK: " + sack_A[0] +", " + sack_A[1] +", " + sack_A[2] +", " + sack_A[3] +", " + sack_A[4]);
+        for(int i = 0; i < 5; i++){
+            if(sack_A[i] != -1) q.add(sack_A[i]);
+        }
+        for (int i = base; i < seqPtr; i++) {
+            System.out.println("A: Retransmitting unacknowledged packet " + i + "." + sequenceNowExpected);
+            if(q.contains(i)){
+                System.out.println("A: in SACK" + i + ".");
+                // use continue to use sack
+                //continue;
+            }
+            stopTimer(A);
+            startTimer(A, waitTime);
+            toLayer3(A,buffer.get(i));
+            RTTstart[i] = getTime();
+            retransmissionsNumber++;
+        }
     }
     
     // This routine will be called once, before any of your other A-side 
@@ -284,10 +304,10 @@ public class StudentNetworkSimulator extends NetworkSimulator
             toLayer3(B, newPacket);
 
             //check the sequence number, if it is the next correct order, send to the layer5
-            while(bufferB.containsKey(sequenceNoExpected)){
-                System.out.println("B: toLayer5: " + sequenceNoExpected);
-                toLayer5(bufferB.get(sequenceNoExpected));
-                sequenceNoExpected++;
+            while(bufferB.containsKey(sequenceNowExpected)){
+                System.out.println("B: toLayer5: " + sequenceNowExpected);
+                toLayer5(bufferB.get(sequenceNowExpected));
+                sequenceNowExpected++;
                 dataTo5AtB++;
             }
             ACKByB++;
@@ -301,7 +321,7 @@ public class StudentNetworkSimulator extends NetworkSimulator
     protected void bInit()
     {
         System.out.println("B: init");
-        sequenceNoExpected = 0;
+        sequenceNowExpected = 0;
         for(int i = 0; i < 5; i++){
             sack_B[i] = -1;
         }
