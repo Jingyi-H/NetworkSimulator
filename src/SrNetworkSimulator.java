@@ -104,7 +104,6 @@ public class SrNetworkSimulator extends NetworkSimulator
     private ArrayList<Packet> buffer_A; // messages from upper layer
 
     /* statistics variables */
-    private int originPktCnt = 0;
     private int rtxCnt = 0;
     private int toLayer5Cnt = 0;
     private int ackCnt = 0;
@@ -140,8 +139,7 @@ public class SrNetworkSimulator extends NetworkSimulator
     protected void aOutput(Message message)
     {
         String msgData = message.getData();
-        // TODO: checksum calculation
-        int checksum = msgData.length();
+        int checksum = calcChecksum(msgData, nextSeqNo_A, currAck_A);
 
         // buffer packet
         Packet pkt = new Packet(nextSeqNo_A, currAck_A, checksum, msgData);
@@ -159,26 +157,27 @@ public class SrNetworkSimulator extends NetworkSimulator
     protected void aInput(Packet packet)
     {
         // if corrupted, drop
-        // TODO: checksum calculation
-        if (packet.getChecksum() != packet.getPayload().length()) {
+        if (packet.getChecksum() != calcChecksum(packet)) {
             return;
         }
         int unACKed = getFirstUnACKed();
         // A recevied ACK in swnd
         if (isInWindow(packet.getAcknum(), base_A, WindowSize)) {
             stopTimer(A);
-            int last = packet.getAcknum();
-            slide(receiverWindow, last - base_A + 1); // TODO: + 1?
+            int step = (packet.getAcknum() - base_A + LimitSeqNo) % LimitSeqNo + 1;
+            slide(senderWindow, step); // TODO: + 1?
 
             /* statistics */
             double currTime = getTime();
-            for (int i = 0; i < last - base_A + 1; i++) {
+            for (int i = 0; i < step; i++) {
                 pktStats.get(i + unACKed).setAckTime(currTime);
             }
-            base_A = last;
+            base_A = (packet.getAcknum() + 1) % LimitSeqNo;
         }
         else {
             // duplicate ACK -> resend packet
+            stopTimer(A);
+            startTimer(A, 5 * RxmtInterval);
             toLayer3(A, senderWindow[0]);
             pktStats.get(unACKed).setRtx(true);
             rtxCnt++;
@@ -195,6 +194,8 @@ public class SrNetworkSimulator extends NetworkSimulator
         stopTimer(A);
         startTimer(A, 5 * RxmtInterval);
         toLayer3(A, senderWindow[0]);
+        rtxCnt++;
+        pktStats.get(getFirstUnACKed()).setRtx(true);
     }
 
     // This routine will be called once, before any of your other A-side
@@ -217,13 +218,20 @@ public class SrNetworkSimulator extends NetworkSimulator
     protected void bInput(Packet packet)
     {
         String recvData = packet.getPayload();
-        // TODO: checksum calculation
-        if (packet.getChecksum() != recvData.length() || !isInWindow(packet.getSeqnum(), base_B, WindowSize)) {
+        if (packet.getChecksum() != calcChecksum(packet)) {
             // if packet is corrupted/not in receiver window
             // drop it, send duplicate ACK to notify A
-            int checksum = 0;
-            Packet reAck = new Packet(nextSeqNo_B, lastAck_B, 0, "");
+//            int checksum = calcChecksum("", nextSeqNo_B, lastAck_B);
+//            Packet reAck = new Packet(nextSeqNo_B, lastAck_B, checksum, "");
+//            toLayer3(B, reAck);
+            corruptedCnt++;
+            return;
+        }
+        if (!isInWindow(packet.getSeqnum(), base_B, WindowSize)) {
+            int checksum = calcChecksum("", nextSeqNo_B, lastAck_B);
+            Packet reAck = new Packet(nextSeqNo_B, lastAck_B, checksum, "");
             toLayer3(B, reAck);
+            ackCnt++;
             return;
         }
 
@@ -234,14 +242,16 @@ public class SrNetworkSimulator extends NetworkSimulator
         if (packet.getSeqnum() == base_B) {
             // send receiver window to upper layer
             int idx = 0;
-            while (receiverWindow[idx] != null) {
+            while (receiverWindow[idx] != null && idx < receiverWindow.length) {
                 toLayer5(receiverWindow[idx].getPayload());
                 toLayer5Cnt++;
                 idx++;
             }
             // last packet in rwnd
             lastAck_B = receiverWindow[idx - 1].getSeqnum();
-            Packet ack = new Packet(nextSeqNo_B, lastAck_B, 0, "");
+            base_B = (receiverWindow[idx - 1].getSeqnum() + 1) % LimitSeqNo;
+            int checksum = calcChecksum("", nextSeqNo_B, lastAck_B);
+            Packet ack = new Packet(nextSeqNo_B, lastAck_B, checksum, "");
             toLayer3(B, ack);
             ackCnt += idx;
 
@@ -250,7 +260,8 @@ public class SrNetworkSimulator extends NetworkSimulator
         }
         else {
             // send duplicate ACK
-            Packet ack = new Packet(nextSeqNo_B, lastAck_B, 0, "");
+            int checksum = calcChecksum("", nextSeqNo_B, lastAck_B);
+            Packet ack = new Packet(nextSeqNo_B, lastAck_B, checksum, "");
             toLayer3(B, ack);
             ackCnt++;
         }
@@ -282,30 +293,50 @@ public class SrNetworkSimulator extends NetworkSimulator
     }
 
     protected void sendSenderWnd() {
+        stopTimer(A);
         startTimer(A, 5 * RxmtInterval);
         for (Packet pkt : senderWindow) {
+            if (pkt == null) {
+                break;
+            }
             toLayer3(A, pkt);
             pktStats.add(new PacketStats(getTime()));
         }
     }
 
     protected void updateReceiverWnd(Packet pkt, int base) {
-        int wndIdx = base - pkt.getSeqnum();
+        int wndIdx = pkt.getSeqnum() - base;
         if (wndIdx < 0) {
             wndIdx += LimitSeqNo;
         }
         receiverWindow[wndIdx] = pkt;
     }
 
+    private int calcChecksum (String payload, int seqnum, int ack) {
+        int checkSum = 0;
+        for (int i = 0; i < payload.length(); i++) {
+            checkSum += (int)payload.charAt(i);
+        }
+        checkSum += seqnum + ack;
+
+        return checkSum;
+    }
+
+    private int calcChecksum (Packet packet) {
+        String payLoad = packet.getPayload();
+        int checkSum = 0;
+        for (int i = 0; i < payLoad.length(); i++) {
+            checkSum += (int)payLoad.charAt(i);
+        }
+        checkSum += packet.getSeqnum() + packet.getAcknum();
+
+        return checkSum;
+    }
+
     protected boolean isInWindow(int seqnum, int base, int wndsize) {
         // TODO: check
-        if (seqnum >= base && seqnum < base + wndsize) {
+        if ((seqnum - base + LimitSeqNo) % LimitSeqNo < wndsize) {
             return true;
-        }
-        else {
-            if (seqnum + LimitSeqNo >= base && seqnum < (base + wndsize) % LimitSeqNo) {
-                return true;
-            }
         }
         return false;
     }
@@ -359,6 +390,7 @@ public class SrNetworkSimulator extends NetworkSimulator
     protected void Simulation_done() {
         double rtt = getAvgRTT();
         double comms = getAvgComms();
+        int originPktCnt = pktStats.size();
         try {
             File myObj = new File("log.txt");
             if (myObj.createNewFile()) {
