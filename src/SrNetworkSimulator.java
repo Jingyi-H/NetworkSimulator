@@ -159,30 +159,16 @@ public class SrNetworkSimulator extends NetworkSimulator
         if (packet.getChecksum() != packet.getPayload().length()) {
             return;
         }
-        // A only receives ACKs
-        // TODO: how to see
-        if (packet.getAcknum() == base_A) {
+        // A recevied ACK in swnd
+        if (isInWindow(packet.getAcknum(), base_A, WindowSize)) {
             stopTimer(A);
-            base_A = (base_A + 1) % LimitSeqNo;
-            slide(receiverWindow, 1);
-            while (isAcked.size() > 0) {
-                if (!isAcked.contains(base_A)) {
-                    break;
-                }
-                isAcked.remove(base_A);
-                slide(receiverWindow, 1);
-                base_A = (base_A + 1) % LimitSeqNo;
-            }
+            int last = packet.getAcknum();
+            slide(receiverWindow, last - base_A + 1); // TODO: + 1?
+            base_A = last;
         }
-        else if (isInWindow(packet.getAcknum(), base_A, WindowSize)) {
-            if (!isAcked.contains(packet.getAcknum())) {
-                // ooo ACK
-                isAcked.add(packet.getAcknum());
-            }
-            else {
-                // duplicate ACK -> resend packet
-                toLayer3(A, senderWindow[0]);
-            }
+        else {
+            // duplicate ACK -> resend packet
+            toLayer3(A, senderWindow[0]);
         }
 
     }
@@ -228,20 +214,27 @@ public class SrNetworkSimulator extends NetworkSimulator
         }
 
         // receive packet successfully
-        lastAck_B = (lastAck_B + 1) % LimitSeqNo;
-        Packet ack = new Packet(nextSeqNo_B, lastAck_B, 0, "");
-        toLayer3(B, ack);
-
-        // send data from B to upper layer
         updateReceiverWnd(packet, base_B);
-        // send receiver window to upper layer
-        int idx = 0;
-        while (receiverWindow[idx] != null) {
-            toLayer5(receiverWindow[idx].getPayload());
-            idx++;
+
+        // if the received packet is base
+        if (packet.getSeqnum() == base_B) {
+            // send receiver window to upper layer
+            int idx = 0;
+            while (receiverWindow[idx] != null) {
+                toLayer5(receiverWindow[idx].getPayload());
+                idx++;
+            }
+            // last packet in rwnd
+            lastAck_B = receiverWindow[idx - 1].getSeqnum();
+            Packet ack = new Packet(nextSeqNo_B, lastAck_B, 0, "");
+            toLayer3(B, ack);
+
+            // slide RWND
+            slide(receiverWindow, idx);
         }
-        // slide RWND
-        slide(receiverWindow, idx);
+        else {
+            Packet ack = new Packet(nextSeqNo_B, lastAck_B, 0, "");
+        }
     }
 
     // This routine will be called once, before any of your other B-side
