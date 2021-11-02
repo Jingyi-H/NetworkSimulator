@@ -144,6 +144,7 @@ public class SrNetworkSimulator extends NetworkSimulator
         // buffer packet
         Packet pkt = new Packet(nextSeqNo_A, currAck_A, checksum, msgData);
         buffer_A.add(pkt);
+        pktStats.add(new PacketStats(getTime()));
 
         updateSenderWnd();
         sendSenderWnd();
@@ -293,14 +294,12 @@ public class SrNetworkSimulator extends NetworkSimulator
     }
 
     protected void sendSenderWnd() {
-        stopTimer(A);
         startTimer(A, 5 * RxmtInterval);
         for (Packet pkt : senderWindow) {
             if (pkt == null) {
                 break;
             }
             toLayer3(A, pkt);
-            pktStats.add(new PacketStats(getTime()));
         }
     }
 
@@ -391,26 +390,29 @@ public class SrNetworkSimulator extends NetworkSimulator
         double rtt = getAvgRTT();
         double comms = getAvgComms();
         int originPktCnt = pktStats.size();
-        try {
-            File myObj = new File("log.txt");
-            if (myObj.createNewFile()) {
-                FileWriter fw = new FileWriter("log.txt");
-                fw.write("\n===============STATISTICS=======================");
-                fw.write("\nNumber of original packets transmitted by A:" + originPktCnt);
-                fw.write("\nNumber of retransmissions by A:" + rtxCnt);
-                fw.write("\nNumber of data packets delivered to layer 5 at B:" + toLayer5Cnt);
-                fw.write("\nNumber of ACK packets sent by B:" + ackCnt);
-                fw.write("\nNumber of corrupted packets:" + corruptedCnt);
-                fw.write("\nRatio of lost packets:" + ((rtxCnt - corruptedCnt) / (originPktCnt + rtxCnt + ackCnt)));
-                fw.write("\nRatio of corrupted packets:" + corruptedCnt / (originPktCnt + rtxCnt + ackCnt - (rtxCnt - corruptedCnt)));
-                fw.write("\nAverage RTT:" + rtt);
-                fw.write("\nAverage communication time:" + comms);
-                fw.write("\n==================================================");
-            }
+        double lossRatio = (rtxCnt - corruptedCnt) / (originPktCnt + rtxCnt + ackCnt);
+        double corruptedRatio = corruptedCnt / (originPktCnt + rtxCnt + ackCnt - (rtxCnt - corruptedCnt));
 
-        } catch (IOException e) {
-            System.out.println("An error occurred when creating log file.");
-        }
+//        try {
+//            File myObj = new File("log.txt");
+//            if (myObj.createNewFile()) {
+//                FileWriter fw = new FileWriter("log.txt");
+//                fw.write("\n===============STATISTICS=======================");
+//                fw.write("\nNumber of original packets transmitted by A:" + originPktCnt);
+//                fw.write("\nNumber of retransmissions by A:" + rtxCnt);
+//                fw.write("\nNumber of data packets delivered to layer 5 at B:" + toLayer5Cnt);
+//                fw.write("\nNumber of ACK packets sent by B:" + ackCnt);
+//                fw.write("\nNumber of corrupted packets:" + corruptedCnt);
+//                fw.write("\nRatio of lost packets:" + ((rtxCnt - corruptedCnt) / (originPktCnt + rtxCnt + ackCnt)));
+//                fw.write("\nRatio of corrupted packets:" + corruptedCnt / (originPktCnt + rtxCnt + ackCnt - (rtxCnt - corruptedCnt)));
+//                fw.write("\nAverage RTT:" + rtt);
+//                fw.write("\nAverage communication time:" + comms);
+//                fw.write("\n==================================================");
+//            }
+//
+//        } catch (IOException e) {
+//            System.out.println("An error occurred when creating log file.");
+//        }
 
         // TO PRINT THE STATISTICS, FILL IN THE DETAILS BY PUTTING VARIBALE NAMES. DO NOT CHANGE THE FORMAT OF PRINTED OUTPUT
         System.out.println("\n\n===============STATISTICS=======================");
@@ -419,8 +421,8 @@ public class SrNetworkSimulator extends NetworkSimulator
         System.out.println("Number of data packets delivered to layer 5 at B:" + toLayer5Cnt);
         System.out.println("Number of ACK packets sent by B:" + ackCnt);
         System.out.println("Number of corrupted packets:" + corruptedCnt);
-        System.out.println("Ratio of lost packets:" + ((rtxCnt - corruptedCnt) / (originPktCnt + rtxCnt + ackCnt)));
-        System.out.println("Ratio of corrupted packets:" + corruptedCnt / (originPktCnt + rtxCnt + ackCnt - (rtxCnt - corruptedCnt)));
+        System.out.println("Ratio of lost packets:" + lossRatio);
+        System.out.println("Ratio of corrupted packets:" + corruptedRatio);
         System.out.println("Average RTT:" + rtt);
         System.out.println("Average communication time:" + comms);
         System.out.println("==================================================");
