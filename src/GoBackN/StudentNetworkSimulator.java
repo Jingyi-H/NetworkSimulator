@@ -280,7 +280,7 @@ public class StudentNetworkSimulator extends NetworkSimulator
     {
         System.out.println("B: Packet from A was received through layer 3 ("+packet.getPayload()+").");
         //check if this is a corrupted packet
-        if (checkCorrupted(packet)) {
+        if (!checkCorrupted(packet)) {
             System.out.println("\033[31;4m" + "B: Packet corrupted!" + "\033[0m");
             if (checkCorrupted(packet))
                 corruptSeq++;
@@ -333,8 +333,8 @@ public class StudentNetworkSimulator extends NetworkSimulator
     protected void Simulation_done()
     {
         int totalPacket = originalPacketsNumber + retransmissionsNumber + ACKByB;
-        double lostRatio = (retransmissionsNumber - corruptNum) / (double) totalPacket;
-        double corruptionRatio = (corruptNum) / (double) (totalPacket - (retransmissionsNumber - corruptNum));
+        double lostRatio = (retransmissionsNumber - corruptSeq) / (double) totalPacket;
+        double corruptionRatio = (corruptSeq) / (double) (totalPacket - (retransmissionsNumber - corruptSeq));
         double RTT = totalRtt/(double) totalRttCount;
         double com = 0;
         int num = 0;
@@ -379,6 +379,12 @@ public class StudentNetworkSimulator extends NetworkSimulator
         for(int i = 0; i < payload.length(); i++) {
             checkSum_compare += (int)payload.charAt(i);
         }
-        return (checkSum_compare != packet.getChecksum());
+        checkSum_compare += packet.getSeqnum() + packet.getAcknum();
+        if (checkSum_compare != packet.getChecksum()) {
+            return false;
+        }else {
+            return true;
+        }
+        //return (checkSum_compare != packet.getChecksum());
     }
 }
