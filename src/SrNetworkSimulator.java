@@ -102,10 +102,14 @@ public class SrNetworkSimulator extends NetworkSimulator
     private Packet[] receiverWindow;
     private ArrayList<Integer> isAcked;
     private ArrayList<Packet> buffer_A; // messages from upper layer
-    /* statistics variables */
-    private int rtxCnt = 0;
-    private int originCnt = 0;
 
+    /* statistics variables */
+    private int originPktCnt = 0;
+    private int rtxCnt = 0;
+    private int toLayer5Cnt = 0;
+    private int ackCnt = 0;
+    private int corruptedCnt = 0;
+    private ArrayList<PacketStats> pktStats;
 
     // Add any necessary class variables here.  Remember, you cannot use
     // these variables to send messages error free!  They can only hold
@@ -159,16 +163,25 @@ public class SrNetworkSimulator extends NetworkSimulator
         if (packet.getChecksum() != packet.getPayload().length()) {
             return;
         }
+        int unACKed = getFirstUnACKed();
         // A recevied ACK in swnd
         if (isInWindow(packet.getAcknum(), base_A, WindowSize)) {
             stopTimer(A);
             int last = packet.getAcknum();
             slide(receiverWindow, last - base_A + 1); // TODO: + 1?
+
+            /* statistics */
+            double currTime = getTime();
+            for (int i = 0; i < last - base_A + 1; i++) {
+                pktStats.get(i + unACKed).setAckTime(currTime);
+            }
             base_A = last;
         }
         else {
             // duplicate ACK -> resend packet
             toLayer3(A, senderWindow[0]);
+            pktStats.get(unACKed).setRtx(true);
+            rtxCnt++;
         }
 
     }
@@ -194,6 +207,7 @@ public class SrNetworkSimulator extends NetworkSimulator
         currAck_A = 0;
         buffer_A = new ArrayList<>();
         senderWindow = new Packet[WindowSize];
+        pktStats = new ArrayList<>();
     }
 
     // This routine will be called whenever a packet sent from the B-side
@@ -222,18 +236,23 @@ public class SrNetworkSimulator extends NetworkSimulator
             int idx = 0;
             while (receiverWindow[idx] != null) {
                 toLayer5(receiverWindow[idx].getPayload());
+                toLayer5Cnt++;
                 idx++;
             }
             // last packet in rwnd
             lastAck_B = receiverWindow[idx - 1].getSeqnum();
             Packet ack = new Packet(nextSeqNo_B, lastAck_B, 0, "");
             toLayer3(B, ack);
+            ackCnt += idx;
 
             // slide RWND
             slide(receiverWindow, idx);
         }
         else {
+            // send duplicate ACK
             Packet ack = new Packet(nextSeqNo_B, lastAck_B, 0, "");
+            toLayer3(B, ack);
+            ackCnt++;
         }
     }
 
@@ -264,8 +283,9 @@ public class SrNetworkSimulator extends NetworkSimulator
 
     protected void sendSenderWnd() {
         startTimer(A, 5 * RxmtInterval);
-        for (Packet pkt: senderWindow) {
+        for (Packet pkt : senderWindow) {
             toLayer3(A, pkt);
+            pktStats.add(new PacketStats(getTime()));
         }
     }
 
@@ -302,24 +322,58 @@ public class SrNetworkSimulator extends NetworkSimulator
         }
     }
 
+    /* statistics related methods */
+
+    protected int getFirstUnACKed() {
+        int i = 0;
+        while (i < pktStats.size()) {
+            if (!pktStats.get(i).isAcked()) {
+                break;
+            }
+            i++;
+        }
+        return i;
+    }
+
+    private double getAvgRTT() {
+        double rttSum = 0;
+        int rttCnt = 0;
+        for (PacketStats ps : pktStats) {
+            if (!ps.isRtx()) {
+                rttCnt++;
+                rttSum += ps.getAckTime() - ps.getSendTime();
+            }
+        }
+        return rttSum / rttCnt;
+    }
+
+    private double getAvgComms() {
+        double commsTime = 0;
+        for (PacketStats ps : pktStats) {
+            commsTime += ps.getAckTime() - ps.getSendTime();
+        }
+        return commsTime / pktStats.size();
+    }
+
     // Use to print final statistics
-    protected void Simulation_done()
-    {
+    protected void Simulation_done() {
+        double rtt = getAvgRTT();
+        double comms = getAvgComms();
         try {
             File myObj = new File("log.txt");
             if (myObj.createNewFile()) {
                 FileWriter fw = new FileWriter("log.txt");
-                fw.write("\n\n===============STATISTICS=======================");
-                fw.write("Number of original packets transmitted by A:" + "<YourVariableHere>");
-                fw.write("Number of retransmissions by A:" + "<YourVariableHere>");
-                fw.write("Number of data packets delivered to layer 5 at B:" + "<YourVariableHere>");
-                fw.write("Number of ACK packets sent by B:" + "<YourVariableHere>");
-                fw.write("Number of corrupted packets:" + "<YourVariableHere>");
-                fw.write("Ratio of lost packets:" + "<YourVariableHere>" );
-                fw.write("Ratio of corrupted packets:" + "<YourVariableHere>");
-                fw.write("Average RTT:" + "<YourVariableHere>");
-                fw.write("Average communication time:" + "<YourVariableHere>");
-                fw.write("==================================================");
+                fw.write("\n===============STATISTICS=======================");
+                fw.write("\nNumber of original packets transmitted by A:" + originPktCnt);
+                fw.write("\nNumber of retransmissions by A:" + rtxCnt);
+                fw.write("\nNumber of data packets delivered to layer 5 at B:" + toLayer5Cnt);
+                fw.write("\nNumber of ACK packets sent by B:" + ackCnt);
+                fw.write("\nNumber of corrupted packets:" + corruptedCnt);
+                fw.write("\nRatio of lost packets:" + ((rtxCnt - corruptedCnt) / (originPktCnt + rtxCnt + ackCnt)));
+                fw.write("\nRatio of corrupted packets:" + corruptedCnt / (originPktCnt + rtxCnt + ackCnt - (rtxCnt - corruptedCnt)));
+                fw.write("\nAverage RTT:" + rtt);
+                fw.write("\nAverage communication time:" + comms);
+                fw.write("\n==================================================");
             }
 
         } catch (IOException e) {
@@ -328,15 +382,15 @@ public class SrNetworkSimulator extends NetworkSimulator
 
         // TO PRINT THE STATISTICS, FILL IN THE DETAILS BY PUTTING VARIBALE NAMES. DO NOT CHANGE THE FORMAT OF PRINTED OUTPUT
         System.out.println("\n\n===============STATISTICS=======================");
-        System.out.println("Number of original packets transmitted by A:" + "<YourVariableHere>");
-        System.out.println("Number of retransmissions by A:" + "<YourVariableHere>");
-        System.out.println("Number of data packets delivered to layer 5 at B:" + "<YourVariableHere>");
-        System.out.println("Number of ACK packets sent by B:" + "<YourVariableHere>");
-        System.out.println("Number of corrupted packets:" + "<YourVariableHere>");
-        System.out.println("Ratio of lost packets:" + "<YourVariableHere>" );
-        System.out.println("Ratio of corrupted packets:" + "<YourVariableHere>");
-        System.out.println("Average RTT:" + "<YourVariableHere>");
-        System.out.println("Average communication time:" + "<YourVariableHere>");
+        System.out.println("Number of original packets transmitted by A:" + originPktCnt);
+        System.out.println("Number of retransmissions by A:" + rtxCnt);
+        System.out.println("Number of data packets delivered to layer 5 at B:" + toLayer5Cnt);
+        System.out.println("Number of ACK packets sent by B:" + ackCnt);
+        System.out.println("Number of corrupted packets:" + corruptedCnt);
+        System.out.println("Ratio of lost packets:" + ((rtxCnt - corruptedCnt) / (originPktCnt + rtxCnt + ackCnt)));
+        System.out.println("Ratio of corrupted packets:" + corruptedCnt / (originPktCnt + rtxCnt + ackCnt - (rtxCnt - corruptedCnt)));
+        System.out.println("Average RTT:" + rtt);
+        System.out.println("Average communication time:" + comms);
         System.out.println("==================================================");
 
         // PRINT YOUR OWN STATISTIC HERE TO CHECK THE CORRECTNESS OF YOUR PROGRAM
