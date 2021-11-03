@@ -286,7 +286,7 @@ public class SrNetworkSimulator extends NetworkSimulator
     protected void bInit()
     {
         base_B = nextSeqNo_B = FirstSeqNo;
-        lastAck_B = 0;
+        lastAck_B = LimitSeqNo - 1;
         receiverWindow = new Packet[WindowSize];
     }
 
