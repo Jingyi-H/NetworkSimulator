@@ -337,7 +337,7 @@ public class StudentNetworkSimulator extends NetworkSimulator
         int totalPacket = originalPacketsNumber + retransmissionsNumber + NumberOfACKByB;
         double lostRatio = (retransmissionsNumber - corruptNumber) / (double) totalPacket;
         double corruptionRatio = (corruptNumber) / (double) (totalPacket - (retransmissionsNumber - corruptNumber));
-        double RTT = totalRtt/(double) totalRttCount;
+        double RTT = totalRtt / (double) totalRttCount;
         double communicationTime = 0;
         int num = 0;
         for(int i = 0; i < originalPacketsNumber; i++){
