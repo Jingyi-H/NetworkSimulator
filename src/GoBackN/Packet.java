@@ -18,7 +18,7 @@ public class Packet
     }
 
     //new constructor of packet
-    public Packet(int seq, int ack, int check, String newPayload, int[] sackNum) {
+    public Packet(int seq, int ack, int check, String newPayload, int[] sack) {
         seqnum = seq;
         acknum = ack;
         checksum = check;
@@ -33,6 +33,9 @@ public class Packet
         else
         {
             payload = new String(newPayload);
+        }
+        for(int i = 0; i < sack.length; i++){
+            sackNum[i] = sack[i];
         }
     }
     
@@ -121,7 +124,9 @@ public class Packet
         return payload;
     }
 
-    public int[] getSackNum() { return sackNum; }
+    public int[] getSackNum() {
+        return sackNum;
+    }
     
     public String toString()
     {

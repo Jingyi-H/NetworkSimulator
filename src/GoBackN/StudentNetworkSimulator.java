@@ -216,9 +216,11 @@ public class StudentNetworkSimulator extends NetworkSimulator
                 get.put(seq,getTime());
             }
 
+            System.out.println("A: Now the window_base is " + base );
             //if the correct ACK packet is the base, slide the window
             if(base == packet.getSeqnum()) {
                 base++;
+                System.out.println("A: Slide the window to the " + base );
             }
             // if base is correct, we should stop the timer
             if (base == seqPtr){
@@ -284,9 +286,7 @@ public class StudentNetworkSimulator extends NetworkSimulator
         //check if this is a corrupted packet
         if (!checkCorrupted(packet)) {
             System.out.println("\033[31;4m" + "B: Packet corrupted!" + "\033[0m");
-            if (checkCorrupted(packet))
-                corruptNumber++;
-            //return;
+            corruptNumber++;
         } else {
             //save it in the buffer_B
             System.out.println("B: Packet received from A checks out.");
