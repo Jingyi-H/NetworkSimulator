@@ -102,12 +102,14 @@ public class SrNetworkSimulator extends NetworkSimulator
     private Packet[] receiverWindow;
     private ArrayList<Integer> isAcked;
     private ArrayList<Packet> buffer_A; // messages from upper layer
+    private int maxBufferSize;
 
     /* statistics variables */
     private int rtxCnt = 0;
     private int toLayer5Cnt = 0;
     private int ackCnt = 0;
     private int corruptedCnt = 0;
+    private int recvAcksCnt = 0;
     private ArrayList<PacketStats> pktStats;
 
     // Add any necessary class variables here.  Remember, you cannot use
@@ -143,7 +145,9 @@ public class SrNetworkSimulator extends NetworkSimulator
 
         // buffer packet
         Packet pkt = new Packet(nextSeqNo_A, currAck_A, checksum, msgData);
-        buffer_A.add(pkt);
+        if (buffer_A.size() <= maxBufferSize) {
+            buffer_A.add(pkt);
+        }
         pktStats.add(new PacketStats(getTime()));
 
         updateSenderWnd();
@@ -161,7 +165,10 @@ public class SrNetworkSimulator extends NetworkSimulator
         if (packet.getChecksum() != calcChecksum(packet)) {
             return;
         }
+
         int unACKed = getFirstUnACKed();
+        recvAcksCnt++;
+
         // A recevied ACK in swnd
         if (isInWindow(packet.getAcknum(), base_A, WindowSize)) {
             stopTimer(A);
@@ -177,11 +184,15 @@ public class SrNetworkSimulator extends NetworkSimulator
         }
         else {
             // duplicate ACK -> resend packet
-            stopTimer(A);
-            startTimer(A, 5 * RxmtInterval);
-            toLayer3(A, senderWindow[0]);
-            pktStats.get(unACKed).setRtx(true);
-            rtxCnt++;
+            try {
+                stopTimer(A);
+                startTimer(A, 5 * RxmtInterval);
+                toLayer3(A, senderWindow[0]);
+                pktStats.get(unACKed).setRtx(true);
+                rtxCnt++;
+            } catch (RuntimeException e) {
+                System.out.println("Sender window is empty.");
+            }
         }
 
     }
@@ -194,6 +205,9 @@ public class SrNetworkSimulator extends NetworkSimulator
     {
         stopTimer(A);
         startTimer(A, 5 * RxmtInterval);
+        if (senderWindow[0] == null) {
+            return;
+        }
         toLayer3(A, senderWindow[0]);
         rtxCnt++;
         pktStats.get(getFirstUnACKed()).setRtx(true);
@@ -210,6 +224,7 @@ public class SrNetworkSimulator extends NetworkSimulator
         buffer_A = new ArrayList<>();
         senderWindow = new Packet[WindowSize];
         pktStats = new ArrayList<>();
+        maxBufferSize = 50;
     }
 
     // This routine will be called whenever a packet sent from the B-side
@@ -220,11 +235,7 @@ public class SrNetworkSimulator extends NetworkSimulator
     {
         String recvData = packet.getPayload();
         if (packet.getChecksum() != calcChecksum(packet)) {
-            // if packet is corrupted/not in receiver window
-            // drop it, send duplicate ACK to notify A
-//            int checksum = calcChecksum("", nextSeqNo_B, lastAck_B);
-//            Packet reAck = new Packet(nextSeqNo_B, lastAck_B, checksum, "");
-//            toLayer3(B, reAck);
+            // if packet is corrupted/not in receiver window, drop it
             corruptedCnt++;
             return;
         }
@@ -369,7 +380,7 @@ public class SrNetworkSimulator extends NetworkSimulator
         double rttSum = 0;
         int rttCnt = 0;
         for (PacketStats ps : pktStats) {
-            if (!ps.isRtx()) {
+            if (!ps.isRtx() && ps.isAcked()) {
                 rttCnt++;
                 rttSum += ps.getAckTime() - ps.getSendTime();
             }
@@ -377,12 +388,55 @@ public class SrNetworkSimulator extends NetworkSimulator
         return rttSum / rttCnt;
     }
 
+    private double getTtlRTT() {
+        double rttSum = 0;
+        for (PacketStats ps : pktStats) {
+            if (!ps.isRtx() && ps.isAcked()) {
+                rttSum += ps.getAckTime() - ps.getSendTime();
+            }
+        }
+        return rttSum;
+    }
+
+    private int getRttCnt() {
+        int rttCnt = 0;
+        for (PacketStats ps : pktStats) {
+            if (!ps.isRtx()  && ps.isAcked()) {
+                rttCnt++;
+            }
+        }
+        return rttCnt;
+    }
+
     private double getAvgComms() {
         double commsTime = 0;
+        int commsCnt = 0;
         for (PacketStats ps : pktStats) {
-            commsTime += ps.getAckTime() - ps.getSendTime();
+            if(ps.isAcked()) {
+                commsTime += ps.getAckTime() - ps.getSendTime();
+                commsCnt++;
+            }
         }
-        return commsTime / pktStats.size();
+        return commsTime / commsCnt;
+    }
+
+    private double getTtlComms() {
+        double commsTime = 0;
+        for (PacketStats ps : pktStats) {
+            if(ps.isAcked())
+                commsTime += ps.getAckTime() - ps.getSendTime();
+        }
+        return commsTime;
+    }
+
+    private int getCommsCnt() {
+        int commsCnt = 0;
+        for (PacketStats ps : pktStats) {
+            if (!ps.isRtx()  && ps.isAcked()) {
+                commsCnt++;
+            }
+        }
+        return commsCnt;
     }
 
     // Use to print final statistics
@@ -390,29 +444,12 @@ public class SrNetworkSimulator extends NetworkSimulator
         double rtt = getAvgRTT();
         double comms = getAvgComms();
         int originPktCnt = pktStats.size();
-        double lossRatio = (rtxCnt - corruptedCnt) / (originPktCnt + rtxCnt + ackCnt);
+        double lossRatio = (double)(rtxCnt - corruptedCnt) / (originPktCnt + rtxCnt + ackCnt);
         double corruptedRatio = corruptedCnt / (originPktCnt + rtxCnt + ackCnt - (rtxCnt - corruptedCnt));
-
-//        try {
-//            File myObj = new File("log.txt");
-//            if (myObj.createNewFile()) {
-//                FileWriter fw = new FileWriter("log.txt");
-//                fw.write("\n===============STATISTICS=======================");
-//                fw.write("\nNumber of original packets transmitted by A:" + originPktCnt);
-//                fw.write("\nNumber of retransmissions by A:" + rtxCnt);
-//                fw.write("\nNumber of data packets delivered to layer 5 at B:" + toLayer5Cnt);
-//                fw.write("\nNumber of ACK packets sent by B:" + ackCnt);
-//                fw.write("\nNumber of corrupted packets:" + corruptedCnt);
-//                fw.write("\nRatio of lost packets:" + ((rtxCnt - corruptedCnt) / (originPktCnt + rtxCnt + ackCnt)));
-//                fw.write("\nRatio of corrupted packets:" + corruptedCnt / (originPktCnt + rtxCnt + ackCnt - (rtxCnt - corruptedCnt)));
-//                fw.write("\nAverage RTT:" + rtt);
-//                fw.write("\nAverage communication time:" + comms);
-//                fw.write("\n==================================================");
-//            }
-//
-//        } catch (IOException e) {
-//            System.out.println("An error occurred when creating log file.");
-//        }
+        double ttlRtt = getTtlRTT();
+        int rttCnt = getRttCnt();
+        double ttlComms = getTtlComms();
+        int commsCnt = getCommsCnt();
 
         // TO PRINT THE STATISTICS, FILL IN THE DETAILS BY PUTTING VARIBALE NAMES. DO NOT CHANGE THE FORMAT OF PRINTED OUTPUT
         System.out.println("\n\n===============STATISTICS=======================");
@@ -429,6 +466,11 @@ public class SrNetworkSimulator extends NetworkSimulator
 
         // PRINT YOUR OWN STATISTIC HERE TO CHECK THE CORRECTNESS OF YOUR PROGRAM
         System.out.println("\nEXTRA:");
+        System.out.println("number of non-corrupted ACKs received by A: " + recvAcksCnt);
+        System.out.println("All RTT: " + ttlRtt);
+        System.out.println("Counter RTT: " + rttCnt);
+        System.out.println("Total time to communicate: " + ttlComms);
+        System.out.println("Counter for time to communicate: " + commsCnt);
         // EXAMPLE GIVEN BELOW
         //System.out.println("Example statistic you want to check e.g. number of ACK packets received by A :" + "<YourVariableHere>");
     }
