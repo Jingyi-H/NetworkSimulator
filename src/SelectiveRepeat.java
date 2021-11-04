@@ -271,12 +271,12 @@ public class SelectiveRepeat {
 
         simulator.runSimulator();
         */
-        double[] testLoss = {0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1};
-        double[] testCorr = {0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1};
+        double[] testLoss = {0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9};
+        double[] testCorr = {0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9};
 
-        for (int i = 300; i < 400; i++) {
+        for (int i = 500; i < 600; i++) {
             for (double c : testCorr) {
-                simulator = new SrNetworkSimulator(20, 0, c, 200,
+                simulator = new SrNetworkSimulator(1000, 0, c, 200,
                         1, i, 8, 30);
                 simulator.runSimulator();
             }

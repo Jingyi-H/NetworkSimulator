@@ -169,28 +169,12 @@ public abstract class NetworkSimulator
 		        break;
         }
         System.out.println("Simulator terminated at time "+getTime());
-        try {
-            File myObj = new File("datalog.txt");
-            if (myObj.createNewFile()) {
-                FileWriter fw = new FileWriter("datalog.txt");
-                fw.write("Loss Ratio\tCorrupted Ratio\tRTT (ms)\tThrouput (kbps)\n");
-                fw.close();
-            }
-        } catch (IOException e) {
-            System.out.println("An error occurred when creating log file.");
-            e.printStackTrace();
-        }
-
-        try {
-            statsLog.write(this.corruptProb + " " + this.lossProb + " ");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
         Simulation_done();
-	try{
-	    outFile.flush();
-	    outFile.close();
-	}catch (Exception e) {e.printStackTrace();}
+
+        try{
+	        outFile.flush();
+	        outFile.close();
+	    }catch (Exception e) {e.printStackTrace();}
     }
     
     /* Generate the next arrival and add it to the event list */

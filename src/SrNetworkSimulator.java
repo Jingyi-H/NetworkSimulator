@@ -532,7 +532,8 @@ public class SrNetworkSimulator extends NetworkSimulator
         try {
             statsLog.write(comms + " ");
             statsLog.write(rtt + " ");
-            statsLog.write((double) originPktCnt * 20 * 8 + "\n");
+            statsLog.write((double) originPktCnt * 20 * 8 + " ");
+            statsLog.write((double) (originPktCnt + rtxCnt) * 20 * 8 + "\n");
             statsLog.close();
 
         } catch (IOException e) {
