@@ -148,13 +148,15 @@ public class SrNetworkSimulator extends NetworkSimulator
         // buffer packet
         Packet pkt = new Packet(nextSeqNo_A, currAck_A, checksum, msgData);
         if (buffer_A.size() <= bufferSize) {
-            System.out.println("Add current packet(seq=" + nextSeqNo_A + ") into buffer.");
+            if (traceLevel > 2)
+                System.out.println("Add current packet(seq=" + nextSeqNo_A + ") into buffer.");
             buffer_A.add(pkt);
             pktStats.add(new PacketStats(pkt.getPayload().length(), getTime()));
 
         }
         else {
-            System.out.println("Buffer zone is full.");
+            if (traceLevel > 2)
+                System.out.println("Buffer zone is full.");
         }
 
         updateSenderWnd();
@@ -170,7 +172,8 @@ public class SrNetworkSimulator extends NetworkSimulator
     {
         // if corrupted, drop
         if (packet.getChecksum() != calcChecksum(packet)) {
-            System.out.println("Receive a corrupted ACK");
+            if (traceLevel > 2)
+                System.out.println("Receive a corrupted ACK");
             return;
         }
 
@@ -180,10 +183,12 @@ public class SrNetworkSimulator extends NetworkSimulator
         // A recevied ACK in swnd
         if (isInWindow(packet.getAcknum(), base_A, WindowSize)) {
             stopTimer(A);
-            System.out.println("Receive ACK " + packet.getAcknum() +  " from B");
             int step = (packet.getAcknum() - base_A + LimitSeqNo) % LimitSeqNo + 1;
             slide(senderWindow, step);
-            System.out.println("Slide sender window by " + step);
+            if (traceLevel > 2) {
+                System.out.println("Receive ACK " + packet.getAcknum() + " from B");
+                System.out.println("Slide sender window by " + step);
+            }
 
             /* statistics */
             double currTime = getTime();
@@ -207,14 +212,16 @@ public class SrNetworkSimulator extends NetworkSimulator
         else {
             // duplicate ACK -> resend packet
             try {
-                System.out.println("Receive duplicate ACK " + packet.getAcknum() + " from B, resend base");
+                if (traceLevel > 2)
+                    System.out.println("Receive duplicate ACK " + packet.getAcknum() + " from B, resend base");
                 stopTimer(A);
                 startTimer(A, RTO);
                 toLayer3(A, senderWindow[0]);
                 pktStats.get(unACKed).setRtx(true);
                 rtxCnt++;
             } catch (RuntimeException e) {
-                System.out.println("Sender window is empty.");
+                if (traceLevel > 2)
+                    System.out.println("Sender window is empty.");
             }
         }
 
@@ -226,13 +233,15 @@ public class SrNetworkSimulator extends NetworkSimulator
     // for how the timer is started and stopped.
     protected void aTimerInterrupt()
     {
-        System.out.println("Retransmission Timeout by A");
+        if (traceLevel > 2)
+            System.out.println("Retransmission Timeout by A");
         stopTimer(A);
         startTimer(A, RTO);
         if (senderWindow[0] == null) {
             return;
         }
-        System.out.println("Resend packet(seq=" + senderWindow[0].getSeqnum() + ")");
+        if (traceLevel > 2)
+            System.out.println("Resend packet(seq=" + senderWindow[0].getSeqnum() + ")");
         toLayer3(A, senderWindow[0]);
         rtxCnt++;
         pktStats.get(getFirstUnACKed()).setRtx(true);
@@ -265,14 +274,16 @@ public class SrNetworkSimulator extends NetworkSimulator
         if (packet.getChecksum() != calcChecksum(packet)) {
             // if packet is corrupted/not in receiver window, drop it
             corruptedCnt++;
-            System.out.println("Receive corrupted packet");
+            if (traceLevel > 2)
+                System.out.println("Receive corrupted packet");
             return;
         }
         if (!isInWindow(packet.getSeqnum(), base_B, WindowSize)) {
             int checksum = calcChecksum("", nextSeqNo_B, lastAck_B);
             Packet reAck = new Packet(nextSeqNo_B, lastAck_B, checksum, "");
             toLayer3(B, reAck);
-            System.out.println("Receive unexpected packet(seqnum=" + packet.getSeqnum() +"), send a duplicate ACK");
+            if (traceLevel > 2)
+                System.out.println("Receive unexpected packet(seqnum=" + packet.getSeqnum() +"), send a duplicate ACK");
             ackCnt++;
             return;
         }
@@ -284,7 +295,7 @@ public class SrNetworkSimulator extends NetworkSimulator
         if (packet.getSeqnum() == base_B) {
             // send receiver window to upper layer
             int idx = 0;
-            while (receiverWindow[idx] != null && idx < receiverWindow.length) {
+            while (idx < receiverWindow.length && receiverWindow[idx] != null) {
                 toLayer5(receiverWindow[idx].getPayload());
                 toLayer5Cnt++;
                 idx++;
@@ -299,14 +310,16 @@ public class SrNetworkSimulator extends NetworkSimulator
 
             // slide RWND
             slide(receiverWindow, idx);
-            System.out.println("Receive base packet(seq=" + packet.getSeqnum() + "), slide receiver window by " + idx);
+            if (traceLevel > 2)
+                System.out.println("Receive base packet(seq=" + packet.getSeqnum() + "), slide receiver window by " + idx);
         }
         else {
             // send duplicate ACK
             int checksum = calcChecksum("", nextSeqNo_B, lastAck_B);
             Packet ack = new Packet(nextSeqNo_B, lastAck_B, checksum, "");
             toLayer3(B, ack);
-            System.out.println("Receive packet(seq=" + packet.getSeqnum() + "), waiting for base packet");
+            if (traceLevel > 2)
+                System.out.println("Receive packet(seq=" + packet.getSeqnum() + "), waiting for base packet");
             ackCnt++;
         }
     }
@@ -517,7 +530,10 @@ public class SrNetworkSimulator extends NetworkSimulator
         //System.out.println("Example statistic you want to check e.g. number of ACK packets received by A :" + "<YourVariableHere>");
 
         try {
-            statsLog.write("");
+            statsLog.write(comms + " ");
+            statsLog.write(rtt + " ");
+            statsLog.write((double) originPktCnt * 20 * 8 + "\n");
+            statsLog.close();
 
         } catch (IOException e) {
             e.printStackTrace();

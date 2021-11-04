@@ -24,6 +24,7 @@ public abstract class NetworkSimulator
     protected int traceLevel;
     private EventList eventList;
     private FileWriter outFile;
+    protected FileWriter statsLog;
 
     private OSIRandom rand;
 
@@ -59,6 +60,8 @@ public abstract class NetworkSimulator
         rand = new OSIRandom(seed);
 	try{
 	    outFile = new FileWriter("OutputFile.txt");
+	    statsLog = new FileWriter("stats.txt", true);
+	    statsLog.write(loss + " " + corrupt + " ");
 	}catch (Exception e) {e.printStackTrace();}
 
         nSim = 0;
@@ -166,6 +169,23 @@ public abstract class NetworkSimulator
 		        break;
         }
         System.out.println("Simulator terminated at time "+getTime());
+        try {
+            File myObj = new File("datalog.txt");
+            if (myObj.createNewFile()) {
+                FileWriter fw = new FileWriter("datalog.txt");
+                fw.write("Loss Ratio\tCorrupted Ratio\tRTT (ms)\tThrouput (kbps)\n");
+                fw.close();
+            }
+        } catch (IOException e) {
+            System.out.println("An error occurred when creating log file.");
+            e.printStackTrace();
+        }
+
+        try {
+            statsLog.write(this.corruptProb + " " + this.lossProb + " ");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         Simulation_done();
 	try{
 	    outFile.flush();

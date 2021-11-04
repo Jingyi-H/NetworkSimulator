@@ -1,7 +1,4 @@
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 
 public class SelectiveRepeat {
 
@@ -18,10 +15,11 @@ public class SelectiveRepeat {
         int windowsize = -1;
         double timeout = -1;
         String buffer = "";
-        File outputfile = new File("OutputFile");
+        File outputfile = new File("OutputFile.txt");
         BufferedReader stdIn = new BufferedReader(
                 new InputStreamReader(System.in));
 
+        /*
         System.out.println("-- * Network Simulator v1.0 * --");
 
         while (nsim < 1)
@@ -272,5 +270,17 @@ public class SelectiveRepeat {
                 trace, seed, windowsize, timeout);
 
         simulator.runSimulator();
+        */
+        double[] testLoss = {0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1};
+        double[] testCorr = {0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1};
+
+        for (int i = 300; i < 400; i++) {
+            for (double c : testCorr) {
+                simulator = new SrNetworkSimulator(20, 0, c, 200,
+                        1, i, 8, 30);
+                simulator.runSimulator();
+            }
+        }
+
     }
 }
