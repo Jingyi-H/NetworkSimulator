@@ -147,7 +147,7 @@ public class SnwNetworkSimulator extends NetworkSimulator
         Packet pkt = new Packet(nextSeqNo_A, currAck_A, checksum, msgData);
         if (buffer_A.size() <= maxBufferSize) {
             buffer_A.add(pkt);
-            pktStats.add(new PacketStats(getTime()));
+            pktStats.add(new PacketStats(pkt.getPayload().length(), getTime()));
         }
         if (currPkt == null) {
             currPkt = buffer_A.get(0);
