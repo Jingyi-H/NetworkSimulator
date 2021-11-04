@@ -92,6 +92,7 @@ public class SrNetworkSimulator extends NetworkSimulator
     private int WindowSize;
     private double RxmtInterval;
     private static double RTO;
+    private static double RTT;
     private int LimitSeqNo;
     private int base_A;
     private int base_B;
@@ -169,6 +170,7 @@ public class SrNetworkSimulator extends NetworkSimulator
     {
         // if corrupted, drop
         if (packet.getChecksum() != calcChecksum(packet)) {
+            System.out.println("Receive a corrupted ACK");
             return;
         }
 
@@ -193,7 +195,13 @@ public class SrNetworkSimulator extends NetworkSimulator
             base_A = (packet.getAcknum() + 1) % LimitSeqNo;
             if (!pktStats.get(unACKed).isRtx()) {
                 PacketStats samplePkt = pktStats.get(unACKed);
-                RTO = 0.875 * RTO + 0.125 * (samplePkt.getRTT());
+                if (RTT == 0) {
+                    RTT = samplePkt.getRTT();
+                }
+                else {
+                    RTT = 0.875 * RTT + 0.125 * (samplePkt.getRTT());
+                }
+                RTO = 5 * RTT;
             }
         }
         else {
@@ -218,13 +226,13 @@ public class SrNetworkSimulator extends NetworkSimulator
     // for how the timer is started and stopped.
     protected void aTimerInterrupt()
     {
-        System.out.print("Retransmission Timeout by A");
+        System.out.println("Retransmission Timeout by A");
         stopTimer(A);
         startTimer(A, RTO);
         if (senderWindow[0] == null) {
             return;
         }
-        System.out.println(" , resend packet " + senderWindow[0]);
+        System.out.println("Resend packet(seq=" + senderWindow[0].getSeqnum() + ")");
         toLayer3(A, senderWindow[0]);
         rtxCnt++;
         pktStats.get(getFirstUnACKed()).setRtx(true);
