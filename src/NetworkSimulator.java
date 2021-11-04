@@ -58,7 +58,7 @@ public abstract class NetworkSimulator
         eventList = new EventListImpl();
         rand = new OSIRandom(seed);
 	try{
-	    outFile = new FileWriter("OutputFile");
+	    outFile = new FileWriter("OutputFile.txt");
 	}catch (Exception e) {e.printStackTrace();}
 
         nSim = 0;
@@ -152,8 +152,8 @@ public abstract class NetworkSimulator
                     nSim++;
 
                     // If we've reached the maximum message count, exit the main loop
-		    if (nSim == maxMessages+1)
-			break;
+                    if (nSim == maxMessages+1)
+                         break;
                     
                     // Let the student handle the new message
                     aOutput(new Message(new String(nextMessage)));
@@ -162,8 +162,8 @@ public abstract class NetworkSimulator
                 default:
                     System.out.println("INTERNAL PANIC: Unknown event type");
             }
-	    if (nSim == maxMessages+1)
-		break;
+            if (nSim == maxMessages+1)
+		        break;
         }
         System.out.println("Simulator terminated at time "+getTime());
         Simulation_done();
@@ -307,12 +307,10 @@ public abstract class NetworkSimulator
             if (x < 0.75)
             {
                 String payload = packet.getPayload();
-                
-		if (payload.length()>0)
-                
-		    payload = "?" + payload.substring(1);
-		
-		else payload = "?";
+		        if (payload.length()>0)
+		            payload = "?" + payload.substring(1);
+		        else
+		            payload = "?";
                 
                 packet.setPayload(payload);
             }

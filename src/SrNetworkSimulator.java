@@ -147,8 +147,9 @@ public class SrNetworkSimulator extends NetworkSimulator
         Packet pkt = new Packet(nextSeqNo_A, currAck_A, checksum, msgData);
         if (buffer_A.size() <= maxBufferSize) {
             buffer_A.add(pkt);
+            pktStats.add(new PacketStats(getTime()));
+
         }
-        pktStats.add(new PacketStats(getTime()));
 
         updateSenderWnd();
         sendSenderWnd();
