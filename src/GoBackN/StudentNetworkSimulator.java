@@ -338,15 +338,21 @@ public class StudentNetworkSimulator extends NetworkSimulator
         double lostRatio = (retransmissionsNumber - corruptNumber) / (double) totalPacket;
         double corruptionRatio = (corruptNumber) / (double) (totalPacket - (retransmissionsNumber - corruptNumber));
         double RTT = totalRtt / (double) totalRttCount;
-        double communicationTime = 0;
+        double totalCommunicationTime = 0;
+        double averageCommunicationTime = 0;
+        double throughput = 0;
+        double goodput = 0;
         int num = 0;
         for(int i = 0; i < originalPacketsNumber; i++){
             if(send.containsKey(i) && get.containsKey(i)){
-                communicationTime += get.get(i) - send.get(i);
+                totalCommunicationTime += get.get(i) - send.get(i);
                 num++;
             }
         }
-        communicationTime = communicationTime/ (double)num;
+        averageCommunicationTime = totalCommunicationTime/ (double)num;
+        throughput = (originalPacketsNumber + retransmissionsNumber) * 16 / totalCommunicationTime;
+        goodput = originalPacketsNumber * 16 / totalRtt;
+
 
     	// TO PRINT THE STATISTICS, FILL IN THE DETAILS BY PUTTING VARIBALE NAMES. DO NOT CHANGE THE FORMAT OF PRINTED OUTPUT
     	System.out.println("\n\n===============STATISTICS=======================");
@@ -358,14 +364,14 @@ public class StudentNetworkSimulator extends NetworkSimulator
     	System.out.println("Ratio of lost packets:" + lostRatio );
     	System.out.println("Ratio of corrupted packets:" + corruptionRatio);
     	System.out.println("Average RTT:" + RTT);
-    	System.out.println("Average communication time:" + communicationTime);
+    	System.out.println("Average communication time:" + averageCommunicationTime);
     	System.out.println("==================================================");
 
     	// PRINT YOUR OWN STATISTIC HERE TO CHECK THE CORRECTNESS OF YOUR PROGRAM
     	System.out.println("\nEXTRA:");
-    	// EXAMPLE GIVEN BELOW
-    	//System.out.println("Example statistic you want to check e.g. number of ACK packets received by A :" + "<YourVariableHere>"); 
-    }	
+        System.out.println("Throughput: "+ throughput );
+        System.out.println("goodput: "+ goodput );
+    }
 
     public int calculateCheckSum (String payLoad) {
         int checkSum = 0;
