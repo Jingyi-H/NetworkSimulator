@@ -169,6 +169,7 @@ public abstract class NetworkSimulator
 		        break;
         }
         System.out.println("Simulator terminated at time "+getTime());
+
         Simulation_done();
 
         try{

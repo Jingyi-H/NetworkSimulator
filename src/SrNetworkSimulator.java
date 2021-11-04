@@ -112,6 +112,7 @@ public class SrNetworkSimulator extends NetworkSimulator
     private int ackCnt = 0;
     private int corruptedCnt = 0;
     private int recvAcksCnt = 0;
+    private double lastTimeStamp = 0;
     private ArrayList<PacketStats> pktStats;
 
     // Add any necessary class variables here.  Remember, you cannot use
@@ -270,6 +271,7 @@ public class SrNetworkSimulator extends NetworkSimulator
     // sent from the A-side.
     protected void bInput(Packet packet)
     {
+        lastTimeStamp = getTime();
         String recvData = packet.getPayload();
         if (packet.getChecksum() != calcChecksum(packet)) {
             // if packet is corrupted/not in receiver window, drop it
@@ -505,6 +507,7 @@ public class SrNetworkSimulator extends NetworkSimulator
         int rttCnt = getRttCnt();
         double ttlComms = getTtlComms();
         int commsCnt = getCommsCnt();
+        double ttlTime = lastTimeStamp - pktStats.get(0).getSendTime();
 
         // TO PRINT THE STATISTICS, FILL IN THE DETAILS BY PUTTING VARIBALE NAMES. DO NOT CHANGE THE FORMAT OF PRINTED OUTPUT
         System.out.println("\n\n===============STATISTICS=======================");
@@ -533,7 +536,8 @@ public class SrNetworkSimulator extends NetworkSimulator
             statsLog.write(comms + " ");
             statsLog.write(rtt + " ");
             statsLog.write((double) originPktCnt * 20 * 8 + " ");
-            statsLog.write((double) (originPktCnt + rtxCnt) * 20 * 8 + "\n");
+            statsLog.write((double) (originPktCnt + rtxCnt) * 20 * 8 + " ");
+            statsLog.write(ttlTime + "\n");
             statsLog.close();
 
         } catch (IOException e) {
