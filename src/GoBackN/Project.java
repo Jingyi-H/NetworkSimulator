@@ -20,9 +20,9 @@ public class Project
         File outputfile = new File("OutputFile");
         BufferedReader stdIn = new BufferedReader(
                                    new InputStreamReader(System.in));
-                                   
+
         System.out.println("-- * Network Simulator v1.0 * --");
-        
+        /*
         while (nsim < 1)
         {
             System.out.print("Enter number of messages to simulate (> 0): " +
@@ -266,10 +266,34 @@ public class Project
                 }
             }
         }
-         
         simulator = new StudentNetworkSimulator(nsim, loss, corrupt, delay,
                                                 trace, seed, windowsize, timeout);
                                                 
         simulator.runSimulator();
+                */
+
+
+        double[] testLoss = {0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9};
+        double[] testCorr = {0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9};
+        /* rtt vs. corruption */
+        for (int i = 500; i < 600; i++) {
+            for (double c : testCorr) {
+                simulator = new StudentNetworkSimulator(1000, 0, c, 200,
+                        1, i, 8, 30);
+                simulator.runSimulator();
+            }
+        }
+
+        /* rtt vs. loss */
+        /*
+        for (int i = 500; i < 600; i++) {
+            for (double c : testLoss) {
+                simulator = new StudentNetworkSimulator(1000, c, 0, 200,
+                        1, i, 8, 30);
+                simulator.runSimulator();
+            }
+        }
+        */
+
     }
 }

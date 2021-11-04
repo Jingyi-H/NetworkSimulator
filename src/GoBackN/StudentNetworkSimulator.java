@@ -1,5 +1,6 @@
 package GoBackN;
 
+import java.io.IOException;
 import java.util.*;
 
 public class StudentNetworkSimulator extends NetworkSimulator
@@ -103,8 +104,8 @@ public class StudentNetworkSimulator extends NetworkSimulator
     private int base;
     private ArrayList<Packet> buffer;
     private int buffMaximum;
-    private  int seqPtr;
-    private double waitTime;
+    private int seqPtr;
+    private static double RTO;
     private int[] sack_A = new int[5];
     private HashMap<Integer, Double> send;
     private HashMap<Integer, Double> get;
@@ -119,14 +120,14 @@ public class StudentNetworkSimulator extends NetworkSimulator
 
     //Go back N Statistics
     private int originalPacketsNumber = 0;
-    private double rttStarted;
     private int corruptNumber = 0;
     private int NumberOfdataTo5AtB = 0;
     private int NumberOfACKByB = 0;
     private double totalRtt = 0.0;
     private int totalRttCount = 0;
-    private int corruptNum = 0;
     private int retransmissionsNumber = 0;
+
+
 
     // This is the constructor.  Don't touch!
     public StudentNetworkSimulator(int numMessages,
@@ -170,10 +171,8 @@ public class StudentNetworkSimulator extends NetworkSimulator
                         System.out.println("A: Sending packet " + seqPtr + " to receiver");
                     }
                     toLayer3(A, buffer.get(seqPtr));
-                    RTTstart[buffer.get(seqPtr).getSeqnum()] = getTime();
                     if (base == seqPtr) {
-                        startTimer(A, waitTime);
-                        rttStarted = getTime();
+                        startTimer(A, RTO);
                     }
                     double time = getTime();
                     if(!send.containsKey(seqPtr)) send.put(seqPtr,time);
@@ -236,7 +235,6 @@ public class StudentNetworkSimulator extends NetworkSimulator
     protected void aTimerInterrupt()
     {
         System.out.println("A: The timer was interrupted, resending the message.");
-        rttStarted = getTime();
         Set<Integer> q = new HashSet<>();
         System.out.println("A: SACK: " + sack_A[0] +", " + sack_A[1] +", " + sack_A[2] +", " + sack_A[3] +", " + sack_A[4]);
         for(int i = 0; i < 5; i++){
@@ -250,7 +248,7 @@ public class StudentNetworkSimulator extends NetworkSimulator
                 //continue;
             }
             stopTimer(A);
-            startTimer(A, waitTime);
+            startTimer(A, RTO);
             toLayer3(A,buffer.get(i));
             RTTstart[i] = getTime();
             retransmissionsNumber++;
@@ -268,7 +266,7 @@ public class StudentNetworkSimulator extends NetworkSimulator
         buffMaximum = 100;
         buffer = new ArrayList<>();
         seqPtr = 0;
-        waitTime = 1 * RxmtInterval;
+        RTO = 1 * RxmtInterval;
         for(int i = 0; i < 5; i++){
             sack_A[i] = -1;
         }
@@ -363,6 +361,18 @@ public class StudentNetworkSimulator extends NetworkSimulator
 
     	// PRINT YOUR OWN STATISTIC HERE TO CHECK THE CORRECTNESS OF YOUR PROGRAM
     	System.out.println("\nEXTRA:");
+
+        try {
+            statsLog.write(communicationTime + " ");
+            statsLog.write(RTT + " ");
+            statsLog.write((double) originalPacketsNumber * 20 * 8 + " ");
+            statsLog.write((double) (originalPacketsNumber + retransmissionsNumber) * 20 * 8 + " ");
+            // TODO: calculate total time of the whole experiment
+            statsLog.write("<Total Time>" + "\n");
+            statsLog.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     	// EXAMPLE GIVEN BELOW
     	//System.out.println("Example statistic you want to check e.g. number of ACK packets received by A :" + "<YourVariableHere>"); 
     }	

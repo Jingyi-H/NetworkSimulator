@@ -26,6 +26,7 @@ public abstract class NetworkSimulator
     protected int traceLevel;
     private EventList eventList;
     private FileWriter outFile;
+    protected FileWriter statsLog;
 
     private OSIRandom rand;
 
@@ -61,6 +62,8 @@ public abstract class NetworkSimulator
         rand = new OSIRandom(seed);
 	try{
 	    outFile = new FileWriter("OutputFile");
+	    statsLog = new FileWriter("gbnStats.txt", true);
+	    statsLog.write(loss + " " + corrupt + " ");
 	}catch (Exception e) {e.printStackTrace();}
 
         nSim = 0;
