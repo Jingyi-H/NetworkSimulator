@@ -1,5 +1,5 @@
 # PA2
-BU CS655 PA2
+
 #### Add files:
 + SnwNetworkSimulator
 + SrNetworkSimulator
